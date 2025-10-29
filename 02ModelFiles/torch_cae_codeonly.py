@@ -85,12 +85,13 @@ class convAutoencoder(nn.Module):
         super().__init__() # initialize as pytorch module
 
         self.downstack = Downstack(input_channels)
+        down_sizes = [576, 192, 144, 96]
 
         self.upstack = nn.Sequential(
-                    upsample(1280, 512),
-                    upsample(512, 256),
-                    upsample(256, 128),
-                    upsample(128, 64)
+                    upsample(1280, 512),                #1280,1,1 -> 512,2,2
+                    upsample(512+down_sizes[0], 256),   #512+skip,2,2 -> 256,4,4
+                    upsample(256+down_sizes[1], 128),   #256+skip,4,4 -> 128,8,8
+                    upsample(128+down_sizes[2], 64)     #128+skip,8,8 -> 64,16,16
                     # upsample(320, 576),
                     # upsample(576, 192),
                     # upsample(192, 144),
@@ -103,20 +104,26 @@ class convAutoencoder(nn.Module):
         x = skips[-1] # last layer of skips is bottleneck; where upsampler starts
         skips = reversed(skips[:-1]) # rearrange from deep->shallow, dropping the bottleneck
 
-        # print("skips:")
-        # for skip in skips:
-        #     print(skip.shape)
-
-        #print(self.upstack)
-        
         # concatenate outputs of upstack and skips along channel dimension
         for up, skip in zip(self.upstack, skips):
-            print(f"before up: {x.shape}, skip shape: {skip.shape}")
+            #print(f"before up: {x.shape}, skip shape: {skip.shape}")
             x = up(x)
-            print(f"after up: {x.shape}")
-            #x = torch.cat([x, skip], dim = 1) # dim = 1 is channels acc to torch ordering
+            #print(f"after up: {x.shape}")
+            x = torch.cat([x, skip], dim = 1) # dim = 1 is channels acc to torch ordering
+            #print(f"after concat: {x.shape}\n")
+
+
+        convTranspose_last = nn.ConvTranspose2d(in_channels=x.shape[1], out_channels=1, kernel_size=3, stride=2, 
+                                       padding=1, output_padding=1, bias=False)
+        conv_last = nn.Conv2d(in_channels=1, out_channels=1, kernel_size=1, stride=1, padding=0, bias=False)
+        sigmoid = nn.Sigmoid()
+        
+        x = convTranspose_last(x)
+        x = conv_last(x)
+        outputs = sigmoid(x)
+        
             
-        return x
+        return outputs
     
     
     
@@ -144,3 +151,4 @@ print(label_tensor.shape)
 model = convAutoencoder(12)
 model.eval()
 test = model(image_tensor)
+print(test)
