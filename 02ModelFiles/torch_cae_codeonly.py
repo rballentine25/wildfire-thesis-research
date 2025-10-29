@@ -53,23 +53,23 @@ class Downstack(nn.Module):
         self.base_model.features[3].conv[0].register_forward_hook(hook) # eqv 'block_3_expand_relu'
         self.base_model.features[6].conv[0].register_forward_hook(hook) # eqv 'block_6_expand_relu'
         self.base_model.features[13].conv[0].register_forward_hook(hook) # eqv 'block_13_expand_relu'
-        self.base_model.features[17].register_forward_hook(hook) # eqv 'block_16_project'
+        self.base_model.features[18].register_forward_hook(hook) # eqv 'block_16_project'
 
         
     def forward(self, x):
         self.base_model(x)
-        for i in range(len(self.skips)):
-            print(f"skips[{i}] shape: {self.skips[i].shape}")
+        # for i in range(len(self.skips)):
+        #     print(f"skips[{i}] shape: {self.skips[i].shape}")
         return self.skips
     
 
 # to create upstack: replacing pix2pix.upsample layers
 # pix2pix layers are just a conv transpose layer, a batchnorm layer, and a relu layer 
 # (dropout optional but not used in NDWS model)
-def upsample(input, output, kernel_size=2, stride=2, padding=0):
+def upsample(input, output, kernel_size=3, stride=2, padding=1, out_pad=1):
     block = nn.Sequential(
         nn.ConvTranspose2d(in_channels=input, out_channels=output, kernel_size=kernel_size, 
-                           stride=stride, padding=padding, bias=False),
+                           stride=stride, padding=padding, output_padding=out_pad, bias=False),
         nn.BatchNorm2d(output),
         #nn.InstanceNorm2d(output),
         nn.ReLU()
@@ -102,13 +102,19 @@ class convAutoencoder(nn.Module):
 
         x = skips[-1] # last layer of skips is bottleneck; where upsampler starts
         skips = reversed(skips[:-1]) # rearrange from deep->shallow, dropping the bottleneck
+
+        # print("skips:")
+        # for skip in skips:
+        #     print(skip.shape)
+
+        #print(self.upstack)
         
         # concatenate outputs of upstack and skips along channel dimension
         for up, skip in zip(self.upstack, skips):
-            print(f"before up: {x.shape}")
+            print(f"before up: {x.shape}, skip shape: {skip.shape}")
             x = up(x)
             print(f"after up: {x.shape}")
-            x = torch.cat([x, skip], dim = 1) # dim = 1 is channels acc to torch ordering
+            #x = torch.cat([x, skip], dim = 1) # dim = 1 is channels acc to torch ordering
             
         return x
     
