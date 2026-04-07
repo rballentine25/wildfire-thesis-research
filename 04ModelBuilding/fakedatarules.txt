@@ -1,0 +1,5 @@
+AFTER STANDARDIZATION:
+1. pdsi + NDVI > 0.6
+	results in almost all 1's for 03 and all 0's for 08, 12, 14, 16 but works otherwise 
+	set: 01, 02, 03, 04, 05, 06, 07, 09, 10, 11, 13, 15, 17, 18
+	exclude: 08, 12, 14, 16
